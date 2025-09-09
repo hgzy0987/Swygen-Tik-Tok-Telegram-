@@ -1,14 +1,12 @@
-import os
 import requests
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from dotenv import load_dotenv
 from keep_alive import keep_alive
 
-# Load environment variables
-load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+# ------------------ Direct Token & Key ------------------
+BOT_TOKEN = "8439903947:AAH4gomQ8C_39TeJrUZRd415vInrRzzICc8"
+RAPIDAPI_KEY = "1cb3246d70msh6ed8addcd1e333ap1f9eaajsnb3b89d5ec2b5"
+# ---------------------------------------------------------
 
 # ---------- START ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -22,7 +20,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "➡️ Extract MP3 Audio\n\n"
         "🚀 CREATED BY @Swygen_bd"
     )
-    keyboard = [["📥 DOWNLOAD VIDEO", "👨‍💻 DEVELOPER INFO"]]
+    keyboard = "📥 DOWNLOAD VIDEO", "👨‍💻 DEVELOPER INFO"
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_html(welcome_text, reply_markup=reply_markup)
 
@@ -30,12 +28,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
-    # DOWNLOAD VIDEO
     if text == "📥 DOWNLOAD VIDEO":
         await update.message.reply_text("🔗 Please send me a TikTok video link.")
         return
 
-    # DEVELOPER INFO
     if text == "👨‍💻 DEVELOPER INFO":
         info = (
             "👨‍💻 <b>Developer Info</b>\n\n"
@@ -45,12 +41,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "➡️ MP3 Audio\n\n"
             "🚀 CREATED BY @Swygen_bd"
         )
-        keyboard = [[InlineKeyboardButton("📩 Contact Developer", url="https://t.me/Swygen_bd")]]
+        keyboard = InlineKeyboardButton("📩 Contact Developer", url="https://t.me/Swygen_bd")
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_html(info, reply_markup=reply_markup)
         return
 
-    # TikTok Link Processing
+    # TikTok Link
     if "tiktok.com" in text:
         await update.message.reply_text("⏳ Fetching video links...")
 
