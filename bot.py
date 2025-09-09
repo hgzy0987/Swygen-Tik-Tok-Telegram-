@@ -30,10 +30,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
+    # DOWNLOAD VIDEO
     if text == "📥 DOWNLOAD VIDEO":
         await update.message.reply_text("🔗 Please send me a TikTok video link.")
         return
 
+    # DEVELOPER INFO
     if text == "👨‍💻 DEVELOPER INFO":
         info = (
             "👨‍💻 <b>Developer Info</b>\n\n"
@@ -48,7 +50,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_html(info, reply_markup=reply_markup)
         return
 
-    # TikTok Link
+    # TikTok Link Processing
     if "tiktok.com" in text:
         await update.message.reply_text("⏳ Fetching video links...")
 
@@ -63,7 +65,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data = response.json()
 
             if "data" not in data:
-                await update.message.reply_text("❌ API error or video not found.")
+                await update.message.reply_text("❌ Video not found or API error.")
                 return
 
             no_wm = data["data"].get("no_watermark")
@@ -80,12 +82,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update.message.reply_html(msg, disable_web_page_preview=True)
         except Exception as e:
-            await update.message.reply_text("⚠️ Something went wrong. Please try again later.")
+            await update.message.reply_text("⚠️ Something went wrong. Try again later.")
             print("Error:", e)
 
 # ---------- MAIN ----------
 def main():
-    keep_alive()  # Flask server for UptimeRobot/Render
+    keep_alive()  # Flask server for UptimeRobot / Render
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
