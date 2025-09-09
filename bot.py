@@ -22,22 +22,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "➡️ Extract MP3 Audio\n\n"
         "🚀 CREATED BY @Swygen_bd"
     )
-
     keyboard = [["📥 DOWNLOAD VIDEO", "👨‍💻 DEVELOPER INFO"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
     await update.message.reply_html(welcome_text, reply_markup=reply_markup)
 
 # ---------- HANDLE MESSAGES ----------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
-    # DOWNLOAD VIDEO BUTTON
+    # DOWNLOAD VIDEO
     if text == "📥 DOWNLOAD VIDEO":
         await update.message.reply_text("🔗 Please send me a TikTok video link to download.")
         return
 
-    # DEVELOPER INFO BUTTON
+    # DEVELOPER INFO
     if text == "👨‍💻 DEVELOPER INFO":
         info = (
             "👨‍💻 <b>Developer Info</b>\n\n"
@@ -52,7 +50,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_html(info, reply_markup=reply_markup)
         return
 
-    # If text is TikTok link
+    # TikTok Link Processing
     if "tiktok.com" in text:
         await update.message.reply_text("⏳ Fetching video links, please wait...")
 
@@ -65,7 +63,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             response = requests.get(url, headers=headers)
             data = response.json()
-
             if "data" not in data:
                 await update.message.reply_text("❌ Video not found or API error.")
                 return
@@ -87,16 +84,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Something went wrong. Please try again.")
             print("Error:", e)
 
-# ---------- MAIN FUNCTION ----------
+# ---------- MAIN ----------
 def main():
-    keep_alive()  # Start Flask server for Render/Heroku
+    keep_alive()  # Start Flask server for Render + Uptime Robot
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("✅ Bot is running...")
-    app.run_polling()  # Start the bot
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
