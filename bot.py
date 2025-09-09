@@ -1,7 +1,7 @@
 import os
 import requests
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
 from keep_alive import keep_alive
 
@@ -30,16 +30,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
-    # DOWNLOAD VIDEO
     if text == "📥 DOWNLOAD VIDEO":
-        await update.message.reply_text("🔗 Please send me a TikTok video link to download.")
+        await update.message.reply_text("🔗 Please send me a TikTok video link.")
         return
 
-    # DEVELOPER INFO
     if text == "👨‍💻 DEVELOPER INFO":
         info = (
             "👨‍💻 <b>Developer Info</b>\n\n"
-            "This bot allows you to download TikTok videos:\n"
+            "This bot lets you download TikTok videos:\n"
             "➡️ Without Watermark\n"
             "➡️ HD Video\n"
             "➡️ MP3 Audio\n\n"
@@ -50,9 +48,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_html(info, reply_markup=reply_markup)
         return
 
-    # TikTok Link Processing
+    # TikTok Link
     if "tiktok.com" in text:
-        await update.message.reply_text("⏳ Fetching video links, please wait...")
+        await update.message.reply_text("⏳ Fetching video links...")
 
         url = f"https://tiktok-video-no-watermark2.p.rapidapi.com/video/url?url={text}"
         headers = {
@@ -61,10 +59,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=10)
             data = response.json()
+
             if "data" not in data:
-                await update.message.reply_text("❌ Video not found or API error.")
+                await update.message.reply_text("❌ API error or video not found.")
                 return
 
             no_wm = data["data"].get("no_watermark")
@@ -79,21 +78,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if audio:
                 msg += f"🎵 <a href='{audio}'>MP3 Audio</a>\n"
 
-            await update.message.reply_html(msg)
+            await update.message.reply_html(msg, disable_web_page_preview=True)
         except Exception as e:
-            await update.message.reply_text("⚠️ Something went wrong. Please try again.")
+            await update.message.reply_text("⚠️ Something went wrong. Please try again later.")
             print("Error:", e)
 
 # ---------- MAIN ----------
 def main():
-    keep_alive()  # Start Flask server for Render + Uptime Robot
+    keep_alive()  # Flask server for UptimeRobot/Render
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("✅ Bot is running...")
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
