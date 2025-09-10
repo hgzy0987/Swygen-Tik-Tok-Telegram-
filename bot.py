@@ -1,96 +1,195 @@
+#!/usr/bin/env python3
+# bot.py
+import os
+import logging
+import tempfile
 import requests
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+import yt_dlp
+
+from telegram import (
+    Update, ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+)
+from telegram.ext import (
+    Updater, CommandHandler, MessageHandler,
+    Filters, CallbackQueryHandler, ConversationHandler
+)
+
 from keep_alive import keep_alive
 
-# ------------------ Direct Token & Key ------------------
-BOT_TOKEN = "8439903947:AAH4gomQ8C_39TeJrUZRd415vInrRzzICc8"
-RAPIDAPI_KEY = "1cb3246d70msh6ed8addcd1e333ap1f9eaajsnb3b89d5ec2b5"
-# ---------------------------------------------------------
+# ========= ENV VARS =========
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 
-# ---------- START ----------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    welcome_text = (
-        f"👋 Hello {user.mention_html()}!\n\n"
-        "✨ Welcome to <b>TikTok Downloader Bot</b>\n\n"
-        "📌 Features:\n"
-        "➡️ Download Without Watermark\n"
-        "➡️ Download HD Video\n"
-        "➡️ Extract MP3 Audio\n\n"
-        "🚀 CREATED BY @Swygen_bd"
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN not set!")
+if not RAPIDAPI_KEY:
+    raise RuntimeError("RAPIDAPI_KEY not set!")
+
+# ========= LOGGING =========
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+WAIT_LINK = 1
+
+MAIN_KEYBOARD = ReplyKeyboardMarkup(
+    [[KeyboardButton("Download Video"), KeyboardButton("Developer Contact")]],
+    resize_keyboard=True
+)
+
+# ========= START =========
+def start(update: Update, context):
+    name = update.effective_user.first_name or "বন্ধু"
+    text = (
+        f"✨ স্বাগতম, *{name}*!\n\n"
+        "এটি *SSS TIK TOK DOWNLOAD BOT* 🚀\n\n"
+        "TikTok ভিডিও ডাউনলোড করুন — HD, Without Watermark বা MP3 ফরম্যাটে।"
     )
-    keyboard = "📥 DOWNLOAD VIDEO", "👨‍💻 DEVELOPER INFO"
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_html(welcome_text, reply_markup=reply_markup)
+    update.message.reply_text(text, reply_markup=MAIN_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
 
-# ---------- HANDLE MESSAGES ----------
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+# ========= DEV CONTACT =========
+def developer_contact(update: Update, context):
+    text = (
+        "👨‍💻 Developer: *Ayman Hasan Shaan*\n"
+        "📩 Contact: @Swygen_bd\n"
+        "🌐 Website: https://swygen.netlify.app\n"
+    )
+    update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=MAIN_KEYBOARD)
 
-    if text == "📥 DOWNLOAD VIDEO":
-        await update.message.reply_text("🔗 Please send me a TikTok video link.")
+# ========= ASK LINK =========
+def download_video_request(update: Update, context):
+    update.message.reply_text("🎬 TikTok ভিডিও লিঙ্ক দিন:", reply_markup=None)
+    return WAIT_LINK
+
+# ========= HANDLE LINK =========
+def handle_link(update: Update, context):
+    url = update.message.text.strip()
+    if not url.startswith("http"):
+        update.message.reply_text("❌ সঠিক একটি URL দিন।", reply_markup=MAIN_KEYBOARD)
+        return ConversationHandler.END
+
+    context.user_data['last_url'] = url
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("HD Video", callback_data="opt_hd")],
+        [InlineKeyboardButton("Without Watermark", callback_data="opt_nowm")],
+        [InlineKeyboardButton("MP3 (Audio)", callback_data="opt_mp3")],
+    ])
+    update.message.reply_text("✅ লিঙ্ক পাওয়া গেছে!\nকোন ফরম্যাট চান?", reply_markup=kb)
+    return ConversationHandler.END
+
+# ========= YTDLP DOWNLOAD =========
+def download_with_ydl(url, outdir, format_str):
+    ydl_opts = {
+        "outtmpl": os.path.join(outdir, "%(id)s.%(ext)s"),
+        "format": format_str,
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+    return info
+
+# ========= RAPIDAPI CALL =========
+def get_no_watermark_url(tiktok_url):
+    url = "https://tiktok-video-no-watermark2.p.rapidapi.com/"
+    querystring = {"url": tiktok_url, "hd": "1"}
+    headers = {
+        "X-RapidAPI-Key": RAPIDAPI_KEY,
+        "X-RapidAPI-Host": "tiktok-video-no-watermark2.p.rapidapi.com"
+    }
+    resp = requests.get(url, headers=headers, params=querystring, timeout=20)
+    data = resp.json()
+    # API structure অনুযায়ী parse
+    if "data" in data and "play" in data["data"]:
+        return data["data"]["play"]
+    elif "data" in data and "wmplay" in data["data"]:
+        return data["data"]["wmplay"]
+    return None
+
+# ========= CALLBACK =========
+def callback_query_handler(update: Update, context):
+    query = update.callback_query
+    query.answer()
+    data = query.data
+    url = context.user_data.get('last_url')
+    chat_id = update.effective_chat.id
+
+    if not url:
+        query.message.reply_text("❌ প্রথমে Download Video চাপুন।")
         return
 
-    if text == "👨‍💻 DEVELOPER INFO":
-        info = (
-            "👨‍💻 <b>Developer Info</b>\n\n"
-            "This bot lets you download TikTok videos:\n"
-            "➡️ Without Watermark\n"
-            "➡️ HD Video\n"
-            "➡️ MP3 Audio\n\n"
-            "🚀 CREATED BY @Swygen_bd"
-        )
-        keyboard = InlineKeyboardButton("📩 Contact Developer", url="https://t.me/Swygen_bd")
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_html(info, reply_markup=reply_markup)
-        return
+    query.message.reply_text("⏳ Processing...")
 
-    # TikTok Link
-    if "tiktok.com" in text:
-        await update.message.reply_text("⏳ Fetching video links...")
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            if data == "opt_hd":
+                download_with_ydl(url, td, "best")
+                file = os.listdir(td)[0]
+                context.bot.send_video(chat_id, video=open(os.path.join(td, file), "rb"))
 
-        url = f"https://tiktok-video-no-watermark2.p.rapidapi.com/video/url?url={text}"
-        headers = {
-            "x-rapidapi-host": "tiktok-video-no-watermark2.p.rapidapi.com",
-            "x-rapidapi-key": RAPIDAPI_KEY
-        }
+            elif data == "opt_nowm":
+                dl_url = get_no_watermark_url(url)
+                if not dl_url:
+                    query.message.reply_text("❌ No-watermark লিংক পাওয়া যায়নি।")
+                    return
+                resp = requests.get(dl_url, stream=True)
+                file_path = os.path.join(td, "no_wm.mp4")
+                with open(file_path, "wb") as f:
+                    for chunk in resp.iter_content(1024):
+                        f.write(chunk)
+                context.bot.send_video(chat_id, video=open(file_path, "rb"))
 
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            data = response.json()
+            elif data == "opt_mp3":
+                ydl_opts = {
+                    "outtmpl": os.path.join(td, "%(id)s.%(ext)s"),
+                    "format": "bestaudio/best",
+                    "postprocessors": [{
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }]
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.extract_info(url, download=True)
+                file = [f for f in os.listdir(td) if f.endswith(".mp3")][0]
+                context.bot.send_audio(chat_id, audio=open(os.path.join(td, file), "rb"))
 
-            if "data" not in data:
-                await update.message.reply_text("❌ Video not found or API error.")
-                return
+        query.message.reply_text("✅ ডাউনলোড সম্পন্ন!", reply_markup=MAIN_KEYBOARD)
 
-            no_wm = data["data"].get("no_watermark")
-            hd = data["data"].get("hd")
-            audio = data["data"].get("audio")
+    except Exception as e:
+        logger.exception("Error")
+        query.message.reply_text(f"❌ সমস্যা: {e}", reply_markup=MAIN_KEYBOARD)
 
-            msg = "<b>✅ Download Options:</b>\n\n"
-            if no_wm:
-                msg += f"🎥 <a href='{no_wm}'>Without Watermark</a>\n"
-            if hd:
-                msg += f"🎥 <a href='{hd}'>HD Video</a>\n"
-            if audio:
-                msg += f"🎵 <a href='{audio}'>MP3 Audio</a>\n"
+# ========= CANCEL =========
+def cancel(update: Update, context):
+    update.message.reply_text("বাতিল করা হলো।", reply_markup=MAIN_KEYBOARD)
+    return ConversationHandler.END
 
-            await update.message.reply_html(msg, disable_web_page_preview=True)
-        except Exception as e:
-            await update.message.reply_text("⚠️ Something went wrong. Try again later.")
-            print("Error:", e)
-
-# ---------- MAIN ----------
+# ========= MAIN =========
 def main():
-    keep_alive()  # Flask server for UptimeRobot / Render
-    app = Application.builder().token(BOT_TOKEN).build()
+    keep_alive()  # Flask keep-alive
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.regex("^Developer Contact$"), developer_contact))
+    dp.add_handler(MessageHandler(Filters.regex("^Download Video$"), download_video_request))
 
-    print("✅ Bot is running...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    conv = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex("^Download Video$"), download_video_request)],
+        states={WAIT_LINK: [MessageHandler(Filters.text & ~Filters.command, handle_link)]},
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    dp.add_handler(conv)
+    dp.add_handler(CallbackQueryHandler(callback_query_handler))
+    dp.add_handler(MessageHandler(Filters.entity("url") | Filters.regex(r"https?://"), handle_link))
+
+    updater.start_polling()
+    logger.info("Bot started 🚀")
+    updater.idle()
 
 if __name__ == "__main__":
     main()
