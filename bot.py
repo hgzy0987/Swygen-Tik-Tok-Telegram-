@@ -45,9 +45,9 @@ def start(update: Update, context: CallbackContext):
 # ========= DEV CONTACT =========
 def developer_contact(update: Update, context: CallbackContext):
     text = (
-        "👨‍💻 Developer: *Golam Mahmud Faridi*\n"
-        "📩 Contact: @YourTelegramUsername\n"
-        "🌐 GitHub: https://github.com/your-repo"
+        "👨‍💻 Developer: *Ayman Hasan Shaan*\n"
+        "📩 Contact: @Swygen_bd\n"
+        "🌐 Website: https://swygen.netlify.app"
     )
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=MAIN_KEYBOARD)
 
