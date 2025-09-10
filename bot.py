@@ -54,7 +54,7 @@ def developer_contact(update: Update, context):
     text = (
         "👨‍💻 Developer: *Ayman Hasan Shaan*\n"
         "📩 Contact: @Swygen_bd\n"
-        "🌐 Website: https://swygen.netlify.app\n"
+        "🌐 Website: https://swygen.netlify.app"
     )
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=MAIN_KEYBOARD)
 
