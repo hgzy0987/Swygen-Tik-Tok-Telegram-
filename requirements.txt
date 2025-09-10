@@ -1,4 +1,4 @@
-python-telegram-bot==13.17
+python-telegram-bot==13.15
 yt-dlp
-ffmpeg-python
+requests
 flask
