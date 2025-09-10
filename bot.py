@@ -1,30 +1,23 @@
 #!/usr/bin/env python3
 # bot.py
-import os
+
 import logging
 import tempfile
 import requests
 import yt_dlp
-
 from telegram import (
     Update, ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 )
 from telegram.ext import (
     Updater, CommandHandler, MessageHandler,
-    Filters, CallbackQueryHandler, ConversationHandler
+    Filters, CallbackQueryHandler, ConversationHandler, CallbackContext
 )
-
 from keep_alive import keep_alive
 
-# ========= ENV VARS =========
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-
-if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN not set!")
-if not RAPIDAPI_KEY:
-    raise RuntimeError("RAPIDAPI_KEY not set!")
+# ========= FIXED TOKENS =========
+BOT_TOKEN = "8229272037:AAFm-TulEar5Zoa0KCVR-QybnizmCWcU0qY"
+RAPIDAPI_KEY = "1cb3246d70msh6ed8addcd1e333ap1f9eaajsnb3b89d5ec2b5"
 
 # ========= LOGGING =========
 logging.basicConfig(
@@ -40,7 +33,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 # ========= START =========
-def start(update: Update, context):
+def start(update: Update, context: CallbackContext):
     name = update.effective_user.first_name or "বন্ধু"
     text = (
         f"✨ স্বাগতম, *{name}*!\n\n"
@@ -50,21 +43,21 @@ def start(update: Update, context):
     update.message.reply_text(text, reply_markup=MAIN_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
 
 # ========= DEV CONTACT =========
-def developer_contact(update: Update, context):
+def developer_contact(update: Update, context: CallbackContext):
     text = (
-        "👨‍💻 Developer: *Ayman Hasan Shaan*\n"
-        "📩 Contact: @Swygen_bd\n"
-        "🌐 Website: https://swygen.netlify.app"
+        "👨‍💻 Developer: *Golam Mahmud Faridi*\n"
+        "📩 Contact: @YourTelegramUsername\n"
+        "🌐 GitHub: https://github.com/your-repo"
     )
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=MAIN_KEYBOARD)
 
 # ========= ASK LINK =========
-def download_video_request(update: Update, context):
+def download_video_request(update: Update, context: CallbackContext):
     update.message.reply_text("🎬 TikTok ভিডিও লিঙ্ক দিন:", reply_markup=None)
     return WAIT_LINK
 
 # ========= HANDLE LINK =========
-def handle_link(update: Update, context):
+def handle_link(update: Update, context: CallbackContext):
     url = update.message.text.strip()
     if not url.startswith("http"):
         update.message.reply_text("❌ সঠিক একটি URL দিন।", reply_markup=MAIN_KEYBOARD)
@@ -82,7 +75,7 @@ def handle_link(update: Update, context):
 # ========= YTDLP DOWNLOAD =========
 def download_with_ydl(url, outdir, format_str):
     ydl_opts = {
-        "outtmpl": os.path.join(outdir, "%(id)s.%(ext)s"),
+        "outtmpl": f"{outdir}/%(id)s.%(ext)s",
         "format": format_str,
         "noplaylist": True,
         "quiet": True,
@@ -102,7 +95,6 @@ def get_no_watermark_url(tiktok_url):
     }
     resp = requests.get(url, headers=headers, params=querystring, timeout=20)
     data = resp.json()
-    # API structure অনুযায়ী parse
     if "data" in data and "play" in data["data"]:
         return data["data"]["play"]
     elif "data" in data and "wmplay" in data["data"]:
@@ -110,7 +102,7 @@ def get_no_watermark_url(tiktok_url):
     return None
 
 # ========= CALLBACK =========
-def callback_query_handler(update: Update, context):
+def callback_query_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     data = query.data
@@ -128,7 +120,7 @@ def callback_query_handler(update: Update, context):
             if data == "opt_hd":
                 download_with_ydl(url, td, "best")
                 file = os.listdir(td)[0]
-                context.bot.send_video(chat_id, video=open(os.path.join(td, file), "rb"))
+                context.bot.send_video(chat_id, video=open(f"{td}/{file}", "rb"))
 
             elif data == "opt_nowm":
                 dl_url = get_no_watermark_url(url)
@@ -136,7 +128,7 @@ def callback_query_handler(update: Update, context):
                     query.message.reply_text("❌ No-watermark লিংক পাওয়া যায়নি।")
                     return
                 resp = requests.get(dl_url, stream=True)
-                file_path = os.path.join(td, "no_wm.mp4")
+                file_path = f"{td}/no_wm.mp4"
                 with open(file_path, "wb") as f:
                     for chunk in resp.iter_content(1024):
                         f.write(chunk)
@@ -144,7 +136,7 @@ def callback_query_handler(update: Update, context):
 
             elif data == "opt_mp3":
                 ydl_opts = {
-                    "outtmpl": os.path.join(td, "%(id)s.%(ext)s"),
+                    "outtmpl": f"{td}/%(id)s.%(ext)s",
                     "format": "bestaudio/best",
                     "postprocessors": [{
                         "key": "FFmpegExtractAudio",
@@ -155,7 +147,7 @@ def callback_query_handler(update: Update, context):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.extract_info(url, download=True)
                 file = [f for f in os.listdir(td) if f.endswith(".mp3")][0]
-                context.bot.send_audio(chat_id, audio=open(os.path.join(td, file), "rb"))
+                context.bot.send_audio(chat_id, audio=open(f"{td}/{file}", "rb"))
 
         query.message.reply_text("✅ ডাউনলোড সম্পন্ন!", reply_markup=MAIN_KEYBOARD)
 
@@ -164,13 +156,13 @@ def callback_query_handler(update: Update, context):
         query.message.reply_text(f"❌ সমস্যা: {e}", reply_markup=MAIN_KEYBOARD)
 
 # ========= CANCEL =========
-def cancel(update: Update, context):
+def cancel(update: Update, context: CallbackContext):
     update.message.reply_text("বাতিল করা হলো।", reply_markup=MAIN_KEYBOARD)
     return ConversationHandler.END
 
 # ========= MAIN =========
 def main():
-    keep_alive()  # Flask keep-alive
+    keep_alive()
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
 
